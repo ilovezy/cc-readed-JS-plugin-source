@@ -1107,11 +1107,46 @@ function urlIsSameOrigin(requestUrl){
 function $WindowProvider(){
     
 }
-
+///////////////
+// ng filter
+//////////////
 $FilterProvider.$inject = ['$provide']
 
+// 这里提供了 9 个在最开始文档中提到的过滤器
 function $FilterProvider($provide){
+    var suffix = 'Filter'    // suffix (后缀)
+
+    function register(name, factory){
+        if(isObject(name)){
+            var filters = {}
+
+            forEach(name, function(filter, key){
+                filters[key] = register(key, filter)
+            })
+
+            return filters
+        }else{
+            return $provide.factory(name + suffix, factory)
+        }
+    }
+
+    this.register = register
+    this.$get = ['$injector', function($injector){
+        return function(name){
+            return $injector.get(name + suffix)
+        }
+    }]
     
+    // 文档中提到的 9 中自带的 Filter 都住在这里了
+    register('currency', currencyFilter)
+    register('date', dateFilter)
+    register('filter', filterFilter)
+    register('json', jsonFilter)
+    register('limitTo', limitToFilter)
+    register('lowercase', lowercaseFilter)
+    register('number', numberFilter)
+    register('orderBy', orderByFilter)
+    register('uppercase', uppercaseFilter)
 }
 
 function filterFilter(){
@@ -1156,9 +1191,13 @@ function ampmGetter(date, formats){
     
 }
 
-var DATE_FORMATS = {},
+var DATE_FORMATS = {
+    yyyy: dateGetter('FullYear', 4),
+      yy: dateGetter('FullYear', 2, 0, true)    
+}
 
-    DATE_FORMATS_SPLIT = //
+var DATE_FORMATS_SPLIT = //,
+    NUMBER_STRING = /^\-?\d+$/  // \- 匹配负号出现一次或不出现，\d+ 匹配数字出现一次或多次
 
 dateFilter.$inject = ['$locale']
 
@@ -1170,6 +1209,7 @@ function jsonFilter(){
     
 }
 
+// valueFn(a) 就会返回 a，即返回给定的参数而已
 var lowercaseFilter = valueFn(lowsercase),
 
     uppercaseFilter = valueFn(uppercase)
@@ -1268,20 +1308,93 @@ function checkboxInputType(){
 ///////////////////////
 // Angular的内置指令
 /////////////////////
-var inputDirective = []
+var inputDirective = ['$browser', '$sniffer', function($browser, $sniffer){
+    return {
+        restrict: 'E',
+        require: '?ngModel',
+        link: function(scope, element, attr, ctrl){
+            if(ctrl){
+                (inputType[lowercase(attr.type)] || inputType.text)(scope, element, attr, ctrl, $sniffer, $browser)
+            }
+        }
+    }
+}]
 
 var VALID_CLASS = 'ng-valid',
+    INVALID_CLASS = 'ng-invalid',
+    PRISTINE_CLASS = 'ng-pristine',
+    DIRTY_CLASS = 'ng-dirty'
 
-var NgModelController = []
+var NgModelController = ['$scope', '$exceptionHandler', '$attrs', '$element', '$parse', '$animate', 
+    function($scope, $exceptionHandler, $attr, $element, $parse, $animate){
+        this.$viewValue = Number.NaN
+        this.$modelValue = Number.NaN
+        this.$parsers = []
+        this.$formatters = []
+        this.$viewChangeListeners = []
+        this.$pristine = true
+        this.$dirty = false
+        this.$valid = true
+        this.$invalid = false
+        this.$name = $attr.name
+
+        var ngModelGet = $parse($attr.ngModel)
+            ngModelSet = ngModelGet.assign
+    }]
 
 var ngModelDirective = function(){
-    
+    return {
+        require: ['ngModel', '^>form']
+        controller: NgModelController,
+        link: function(scope, element, attr, ctrls){
+            var modelCtrl = ctrls[0],
+                formCtrl = ctrls[1] || nullFormCtrl
+
+            formCtrl.$addControl(modelCtrl)
+
+            scope.$on('$destory', function(){
+                formCtrl.$removeControl(modelCtrl)
+            })
+        }
+    }
 }
 
-var ngChangeDirective = valueFn({})
+var ngChangeDirective = valueFn({
+    require: 'ngModel',
+    link: function(scope, element, attr, ctrl){
+        ctrl.$viewChangeListeners.push(function(){
+            scope.$eval(attr.ngChange)
+        })
+    }
+})
 
 var requiredDirective = function(){
-    
+    return {
+        require: '?ngModel',
+        link: function(scope, elm, attr, ctrl){
+            if(!ctrl){
+                return 
+            }
+
+            attr.require = true
+
+            var validator = function(value){
+                if(attr.required && ctrl.$isEmpty(value)){
+                    ctrl.$setValidity('require', false)
+                    return 
+                }else{
+                    ctrl.$setValidity('required', true)
+                    return value
+                }
+            }
+
+            ctrl.$formatters.push(validator)
+            ctrl.$parsers.unshift(validator)
+            attr.$observe('required', function(){
+                validator(ctrl.$viewValue)
+            })
+        }
+    }
 }
 
 var ngListDirective = function(){
@@ -1366,7 +1479,18 @@ var ngSwitchDefaultDirective = ngDirective({})
 var ngTranscludeDirective = ngDirective({})
 
 var scriptDirective = ['$templateCache', function($templateCache){
-    
+    return {
+        restict: 'E',
+        terminal: true,
+        compile: function(element, attr){
+            if(attr.type == 'text/ng-template'){
+                var templateUrl = attr.id,
+                    text = element[0].text
+                
+                $templateCache.put(templateUrl, text)
+            }
+        }
+    } 
 }]
 
 var ngOptionsMinErr = minErr('ngOptions')
@@ -1380,23 +1504,27 @@ var selectDirective = ['$compile', '$parse', function($compile, $parse){
 
 var optionsDirective = ['$interpolate', function($interpolate){
     
-}]
+}]i
 
-var styleDirective = valueFn({})
+var styleDirective = valueFn({
+    restrict: 'E',
+    terminal: true
+})
+
+if(window.angular.bootstrap){
+    console.log('WARNING: Tried to load angular more than once.')
+
+    return 
+}
+
+bindJQuery()
+
+publishExternalAPI(angular)
+
+jqLite(document).ready(function(){
+    angularInit(document, bootstrap)
+})
 
 })(window, document)
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
