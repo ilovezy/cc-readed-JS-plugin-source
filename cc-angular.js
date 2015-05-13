@@ -1209,13 +1209,58 @@ function jsonFilter(){
     
 }
 
-// valueFn(a) 就会返回 a，即返回给定的参数而已
+/*
+function valueFn(value){
+    return function(value){
+        return value
+    }
+}
+即给定一个参数，返回一个函数，这个返回的函数执行的话就会返回最开始那个参数了，可能是用来缓存数据？
+*/  
+
 var lowercaseFilter = valueFn(lowsercase),
 
     uppercaseFilter = valueFn(uppercase)
 
+// 目测用来限制字符串长度，或者数字大小
 function limitToFilter(){
+    return function(init, limit){
+        if(!isArray(input) && !isString(input)) return input
+
+        if(Math.abs(Number(limit)) === Infinity){
+            limit = Number(limit)
+        }else{
+            limit = int(limit)
+        }
     
+        if(isString(input)){
+            if(limit){
+                return limit >= 0 ? input.slice(0, limit) : input.slice(limit, input.length)
+            }else{
+                return ''
+            }
+        }         
+        
+        var out = [], i, n
+            
+        if(limit > input.length){
+            limit = input.length
+        }else if(limit < -input.length){
+            limit = -input.length
+        }
+
+        if(limit > 0){
+            i = 0 
+            n = limit   
+        }else{
+            i = input.length + limit
+            n = input.length
+        }
+
+        for( ; i < n; i++) out.push(input[i])
+
+        return out
+    }
 }
 
 orderByFilter.$inject = ['$parse']
