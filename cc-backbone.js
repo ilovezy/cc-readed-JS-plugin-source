@@ -1,12 +1,45 @@
-jsonpcallback({
-    "appid": "wxf3f273709c656249",
-    "timestamp": "1422238379",
-    "nonceStr": "iVsXHCGKPQEPRh3h",
-    "signature": "6e97ff42ebfbf802febd6d533d68e9a3d07dc2c6",
-    "jsticket": "bxLdikRXVbTPdHSM05e5uymw_a1FixHWJingcvcXsVQ_0uUqUrGVYXOfdSFJJ9bHhghul81jY2yjvOf3hGHKaQ",
-    "url": "http://wxtest1.mituyun.com/"
-})
 
+
+
+(function(root, factory){
+    
+}(this, function(root, Backbone, _, $){
+    var previousBackbone = root.Backbone, 
+        array = [], 
+        push = array.push, 
+        slice = array.slice, 
+        splice = array.splice
+
+    Backbone.VERSION = '1.2.2'
+
+    Backbone.$ = $
+
+    Backbone.noConflict = function(){
+        root.Backbone = previousBackbone
+        return this
+    }
+    
+    Backbone.emulateHTTP = false
+
+    Backbone.emulateJSON = false
+
+    var Events = Backbone.Events = {
+        on: function(name, callback, context){
+            if(!eventsApi(this, 'on', name, [callback, context]) || !callback) return this
+
+            this._events || (this._events = {})
+
+            var events = this._events[name] || (this._events[name] = [])
+            
+            events.push({callback: callback, context: context, ctx: context || this})
+
+            return this
+
+            var a = hello, 
+        }
+    }
+    
+})
 
 
 

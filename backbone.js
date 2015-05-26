@@ -101,8 +101,7 @@
       });
       once._callback = callback;
       return this.on(name, once, context);
-    },
-
+    }, 
     // Remove one or many callbacks. If `context` is null, removes all
     // callbacks with that function. If `callback` is null, removes all
     // callbacks for the event. If `name` is null, removes all bound
@@ -131,7 +130,6 @@
           if (!retain.length) delete this._events[name];
         }
       }
-
       return this;
     },
 
@@ -791,11 +789,11 @@
     // Remove a model from the beginning of the collection.
     shift: function(options) {
       var model = this.at(0);
-      this.remove(model, options);
-      return model;
+          this.remove(model, options);
+        return model;
     },
 
-    // Slice out a sub-array of models from the collection.
+// Slice out a sub-array of models from the collection.
     slice: function() {
       return slice.apply(this.models, arguments);
     },
