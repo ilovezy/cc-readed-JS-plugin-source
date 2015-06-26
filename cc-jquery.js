@@ -719,19 +719,40 @@ jQuery.fn.extend({
 	},
 
 	closest: function(selectors, context){
-	
+        var cur, i = 0, l = this.length, matched = [], 
+            pos = rneedsContext.test(selectors) || typeof selectors !== 'string' ?
+                jQuery(selectors, context || this.context) : 0
+        
+        for(; i < l; i ++){
+    	    for(cur = this[i]; cur && cur !== context; cur = cur.parentNode){
+    	        if(cur.nodeType < 11  && (pos ? pos.index(cur) : 
+                    cur.nodeTyp === 1 && jQuery.find.matchesSelector(cur, selectors))){
+    	            matched.push(cur)
+                    break
+    	        }
+    	    }
+        }
+        return this.pushStack(matched.length > 1 ? jQuery.unique(matched) : matched)
 	},
 
 	index: function(elem){
-	
+	    if(!elem){
+	        return (this[0] && this[0].parentNode) ? this.first().prevAll().length : -1
+	    }
+        if(typeof elem === 'string'){
+            return jQuery.inArray(this[0], jQuery(elem)) 
+        }
+        return jQuery.inArray(elem.jQuery ? elem[0] : elem, this)
 	},
 
 	add: function(selector, context){
-	
+        return this.pushStack(
+            jQuery.unique(jQuery.merge(this.get(), jQuery(selector, context)))
+        )
 	},
 
 	addBack: function(selector){
-	
+	    return this.add(selector == null ? this.prevObject : this.prevObject.filter(selector))
 	}
 })
 
@@ -739,7 +760,7 @@ function sibling(cur, dir){
     do{
         cur = cur[dir]
     }while(cur && cur.nodeType !== 1)
-
+    
     return cur
 }
 
@@ -929,7 +950,7 @@ jQuery.extend({
 	
 	// handle(处理) when the DOM is ready	
 	ready: function(wait){
-	    if(wait === true ? --jQuery.readyWati : jQuery.isReady) return 
+	    if(wait === true ? --jQuery.readyWait : jQuery.isReady) return 
 
         if(!document.body) return setTimeout(jQuery.ready)
 
@@ -1165,10 +1186,38 @@ var iframe,
 	elemdisplay = {}
 
 function actualDisplay(name, doc){
+    var style, 
+        elem = jQuery(doc.createElement(name)).appendTo(doc.body), 
+        display = window.getDefaultComputedStyle && (style = window.getDefaultComputedStyle(elem[0])) ?
+            style.display : jQuery.css(elem[0], 'display')
+
+    elem.detach()
+
+    return display
 }
 
 function defaultDisplay(nodeName){
+    var doc = document, display = elemdisplay[nodeName]
+    
+    if(!display){
+        display = actualDisplay(nodeName, doc)
 
+        if(display === 'none' || !display){
+            iframe = (iframe || jQuery('<iframe frameborder="0" width ="0" height="0">')).appendTo(doc.documentElement)
+            doc = (iframe[0].contentWindow || iframe[0].contentDocument).document
+
+            // support: IE
+            doc.write()
+            doc.close()
+
+            display = actualDisplay(nodeName, doc)
+            iframe.detach()
+        }
+
+        elemdisplay[nodeName] = display
+    }
+
+    return display
 }
 
 (function(){

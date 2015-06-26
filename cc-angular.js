@@ -1165,7 +1165,51 @@ function isSuccess(status){
 }
 
 function $HttpProvider(){
+    var JSON_START = /^\s*(\[|\{[^\{])/,  
+        JSON_END = /[\}\]]\s*$/,     
+        PROTECTION_PREFIX = /^\)\]\}',?\n/, 
+        CONTENT_TYPE_APPLICATION_JSON = {'Content-Type': 'application/json;charset=utf-8'}
 
+    var defaults = this.defaults = {
+        // transform incoming response data
+        transformResponse: [function(data){
+            if(isString(data)){
+                // strip json vulnerability protection prefix
+                data = data.replace(PROTECTION_PREFIX, '')
+                if(JSON_START.test(data) && JSON_END.test(data)){
+                    data = fromJson(data)
+                }
+            }
+            return data
+        }], 
+
+        headers: {
+            common: {'Accept': 'application/json, text/plain, */*'}, 
+            post: shallowCopy(CONTENT_TYPE_APPLICATION_JSON), 
+            put: shallowCopy(CONTENT_TYPE_APPLICATION_JSON), 
+            patch: shallowCopy(CONTENT_TYPE_APPLICATION_JSON)
+        }, 
+
+        xsrfCookieName: 'XSRF-TOKEN', 
+        xsrfHeaderName: 'X-XSRF-TOKEN'
+    }
+
+    var interceptorFactories = this.interceptors = []
+    
+    var repsonseInterceptorFactories = this.responseInterceptors = []
+
+    this.$get = ['$httpBackend', '$browser', '$cacheFactory', '$rootScope', '$q', '$injector', 
+        function($httpBackend, $browser, $cacheFactory, $rootScope, $q, $injector){
+            var defaultCache = $cacheFactory('$http'), 
+                reversedInterceptors = []
+
+            forEach(interceptorFactories, function(interceptorFactory){
+                
+            })
+            
+        }]
+    
+    
 }
 
 function createXhr(method){
@@ -1234,7 +1278,48 @@ function $IntervalProvider(){
 }
 
 function $LocaleProvider(){
+    this.$get = function(){
+        return {
+            id: 'en-us', 
 
+            NUMBER_FORMATS: {
+                DECIMAL_SEP: '.',  // decimal 小数点
+                GROUP_SEP: ', ', 
+                PATTERNS: [{ // decimal 模式，即 小数点模式
+                    minInt: 1, 
+                    minFrac: 0, 
+                    maxFrac: 3, 
+                    posPre: '', 
+                    negPre: '-', 
+                    negSuf: '', 
+                    gSize: 3, 
+                    lgSize: 3
+                }, { //  currency 模式，即 货币模式
+                    minInt: 1, 
+                    minFrac: 2, 
+                    maxFrac: 2, 
+                    posPre: '\u00A4', 
+                    posSuf: '', 
+                    negPre: '(\u00A4', 
+                    negSuf: ')', 
+                    gSize: 3, 
+                    lgSize: 3
+                }],  // pattern 模式
+                CURRENCY_SYM: '$'
+            }, 
+
+            DATETIME_FORMATS: {
+            
+            }, 
+
+            pluralCat: function(num){ // plural 复数, 这个命名蛋疼
+                if(num === 1){
+                    return 'one'
+                }
+                return 'other'
+            }
+        }
+    }
 }
 
 var PATH_MATCH = /^(\?#]*)(\?([^#]*))?(#(.*))?$/,
@@ -1245,14 +1330,14 @@ var PATH_MATCH = /^(\?#]*)(\?([^#]*))?(#(.*))?$/,
     },
     $locationMinErr = minErr('$location')
 
+// 把参数的用 / 分割的每一部分都 encode 一下再重新连接
 function encodePath(path){
     var segments = path.split('/'), 
         i = segments.length
-    
+
     while(i--){
         segments[i] = encodeUriSegment(segments[i])    
     }
-
     return segments.join('/')
 }
 
@@ -1270,21 +1355,67 @@ function beginsWith(begin, whole){
     }
 }
 
+// 把 参数 的 # 后面的一串包括 # 都剪切掉
 function stripHash(url){
-
+    var index = url.indexOf('#')
+    return index == -1 ? url : url.substr(0, index)
 }
 
 function stripFile(url){
-
+    return url.substr(0, stripHash(url).lastIndexOf('/') + 1)
 }
 
 function serverBase(url){
-
+    return url.substring(0, url.indexOf('/', url.indexOf('//') + 2))
 }
 
 function LocationHtml5Url(appBase, basePrefix){
+    this.$$html5 = true
+    basePrefix = basePrefix || ''
 
-}
+    var appBaseNoFile = stripFile(appBase)
+
+    parseAbsoluteUrl(appBase, this, appBase)
+
+    this.$$parse = function(url){
+        var pathUrl = beginsWith(appBaseNoFile, url)
+
+        if(!isString(pathUrl)){
+            throw
+        }
+        parseAppUrl(pathUrl, this, appBase)
+
+        if(!this.$$path) this.$$path = '/'
+
+        this.$$compose()
+    }
+
+    this.$$compose = function(){
+        var search = toKeyValue(this.$$search), 
+            hash = this.$$hash ? '#' + encodeUriSegment(this.$$hash) : ''
+        
+        this.$$url = encodePath(this.$$path) + (search ? '?' + search : '') + hash
+        this.$$absUrl = appBaseNoFile + this.$$url.substr(1)
+    }
+
+    this.$$rewrite = function(url){
+        var appUrl, prevAppUrl
+        
+        if((appUrl = beginsWith(appBase, url)) !== undefined){
+            prevAppUrl = appUrl
+
+            if((appUrl = beginsWith(basePrefix, appUrl)) !== undefined){
+                return appBaseNoFile + (beginsWith('/', appUrl) || appUrl)
+            }else{
+                return appBase + prevAppUrl
+            }
+        }else if((appUrl = beginsWith(appBaseNoFile, url)) !== undefined){
+            return appBaseNoFile + appUrl
+        }else if(appBaseNoFile == url + '/'){
+            return appBaseNoFile
+        }
+    }
+}   
 
 function LocationHashbangUrl(appBase, hashPrefix){
 
@@ -3127,8 +3258,82 @@ var ngOptionsDirective = valueFn({terminal: true})
 
 // jshint maxlen: false
 var selectDirective = ['$compile', '$parse', function($compile, $parse){
+    var NG_OPTIONS_REGEXP = //, 
+        nullModelCtrl = {$setViewValue: noop}
 
+    return {
+        restrict: 'E', 
+        require: ['select', '?ngModel'], 
+        controller: ['$element', '$scope', '$attrs', function($element, $scope, $attrs){
+            var self = this, 
+                optionsMap = {}, 
+                ngModelCtrl = nullModelCtrl, 
+                nullOption, 
+                unknownOption
+            
+            self.databound = $attrs.ngModel
+
+            self.init = function(ngModelCtrl_, nullOption_, unknownOption_){
+                ngModelCtrl = ngModelCtrl_
+                nullOption = nullOption_
+                unknowOption = unknownOption_
+            }
+    
+            self.addOption = function(value){
+                
+            }        
+
+            self.removeOption = function(value){
+                
+            }
+
+            self.renderUnknownOption = function(val){
+                
+            }
+
+            self.hasOption = function(value){
+                
+            }
+
+            $scope.$on('$destory', function(){
+                self.renderUnkownOption = noop // noop 等待
+            })
+        }], 
+
+        link: function(scope, element, attr, ctrls){
+            // 如果 ngModel 是没有定义，就直接返回
+            if(!ctrls[1]) return 
+
+            var selectCtrl = ctrls[0], 
+                ngModelCtrl = ctrls[1], 
+                multiple = attr.multiple, 
+                optionsExp = attr.ngOptions, 
+                nullOption = false, // 如果是 false，用户不能选择这个option
+                emptyOption, 
+                optionTemplate = jqLite(document.createElement('option')), 
+                optGroupTemplate = jqLite(document.createElement('optgroup')), 
+                unknownOption = optionTemplate.clone()
+
+            for(var i = 0, children = element.children(), ii = children.length; i < ii; i++){
+                if(children[i].value === ''){
+                    emptyOption = nullOption = children.eq(i)
+                    break
+                }
+            }
+
+            selectCtrl.init(ngModelCtrl, nullOption, unknowOption)
+
+            // required validator
+            if(multiple){
+                ngModelCtrl.$isEmpty = function(value){
+                    return !value || value.length === 0
+                }
+            }
+        }
+    }
 }]
+
+// ['$a', function($a){}] 这种写法其实就是依赖注入，同时可以防止文件压缩时变量名改变的bug
 
 var optionDirective = ['$interpolate', function($interpolate){
     var nullSelectCtrl = {

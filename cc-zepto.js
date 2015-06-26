@@ -22,7 +22,7 @@ var _zid = 1,
 		mouseleave: 'mouseout'
 	}
 
-specialEvents.click = specialEvents.mousedown = specialEvents.mouseup = specialEvents.mousemove = 'MouseEvents'
+specialEvents.click = specialEvents.mousedown = specialEvents.mouseup = specialEvents.mousemove = 'MouseEvent
 
 function zid(ele){
 	return ele._zid || (ele._zid = _zid++)
